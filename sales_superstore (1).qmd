@@ -1,0 +1,1481 @@
+---
+title: "sales of superstore"
+subtitle: "analysis of superstore sales"
+author: "snehi"
+format:
+    html:
+      toc: true
+      toc-location: left
+      embed-resource: true
+editor: visual
+execute:
+  echo: true
+  warning: false
+  message: false
+  error: true
+---
+
+## Author : Snehitha Ravula
+# **Introduction**
+
+#### Understanding business performance is crucial for making informed decisions. This report analyzes the **Superstore** dataset to gain insights into key business metrics, including sales trends, customer segmentation, and regional sales performance. By examining these aspects, businesses can optimize strategies, improve customer targeting, and identify opportunities for growth.
+
+# Methodology
+
+#### The dataset was obtained from Superstore sales records. Several steps were taken to prepare the data for analysis:
+
+#### - **Data Cleaning:** Missing values were handled, and incorrect entries were reviewed.
+
+#### - **Date Formatting:** Order and shipping dates were standardized for consistency.
+
+#### - **Aggregation:** Sales data was grouped by time, customer segment, and region to identify trends.
+
+#### - **Visualization:** Graphs and charts were used to present findings in an understandable manner.
+
+## Enhancing Sales Performance and Inventory Optimization
+
+### Introduction:
+
+#### Effective sales performance and inventory management are critical for retail success. This report analyzes sales transaction data from a superstore to identify trends, optimize stock levels, and improve overall business efficiency.
+
+### Business Problem:
+
+#### The superstore faces challenges in managing inventory and maximizing sales performance. Overstocking leads to increased holding costs, while stockouts result in lost sales and dissatisfied customers. Additionally, understanding customer preferences across different regions and segments is essential for targeted marketing and inventory planning.
+
+### Relevance of Data Analytics:
+
+#### Identify best-selling and slow-moving products.
+
+#### Analyze regional and customer-segment sales trends.
+
+#### Optimize inventory levels to reduce waste and improve efficiency.
+
+#### Improve shipping and logistics strategies to enhance customer satisfaction.
+
+```{r}
+library(tidyverse)
+library(RSQLite)
+library(ggplot2)
+library(lubridate)
+library(DBI)
+library(corrplot)
+
+```
+
+```{r}
+data <- read.csv("superstore.csv",  stringsAsFactors = FALSE)
+```
+
+```{r}
+# Convert Date columns to Date format
+data$Order_Date <- dmy(data$Order_Date)
+data$Ship_Date <- dmy(data$Ship_Date)
+```
+
+```{r}
+# Handle missing values
+data <- na.omit(data)
+```
+
+```{r}
+# Check for duplicate entries
+data <- data %>% distinct()
+```
+
+```{r}
+# Create new calculated columns
+data <- data %>% 
+  mutate(Delivery_Time = as.numeric(Ship_Date - Order_Date))
+```
+
+```{r}
+# Create new calculated columns
+data <- data %>% 
+  mutate(Delivery_Time = as.numeric(Ship_Date - Order_Date))
+```
+
+```{r}
+# Load required libraries
+library(DBI)
+library(RSQLite)
+library(here)
+```
+
+```{r}
+conn <- dbConnect(SQLite(), dbname = "superstore_db.sqlite")
+```
+
+```{r}
+
+# Write the cleaned data to SQLite
+dbWriteTable(conn, "superstore", data, overwrite = TRUE)
+```
+
+```{r}
+# Verify by fetching some data
+query <- "SELECT * FROM superstore LIMIT 5"
+data_sample <- dbGetQuery(conn, query)
+print(data_sample)
+```
+
+```{r}
+query <- "SELECT * FROM superstore LIMIT 5"
+data_sample <- dbGetQuery(conn, query)
+print(data_sample)
+```
+
+```{sql connection=conn}
+SELECT Category, SUM(Sales) AS Total_Sales
+FROM superstore
+GROUP BY Category
+ORDER BY Total_Sales DESC
+
+```
+
+```{r summary_eda}
+summary(data)
+summary(data$Sales)
+summary(data$Profit)
+summary(data$Quantity)
+summary(data$Category)
+summary(data$Sub_Category)
+summary(data$Region)
+summary(data$Country)
+```
+
+```{r}
+# Grouped summary (Total sales by category)
+category_summary <- data %>% 
+  group_by(Category) %>% 
+  summarise(Total_Sales = sum(Sales), Avg_Sales = mean(Sales), .groups = 'drop')
+print(category_summary)
+```
+
+```{r}
+# Analyze top customers based on total purchases
+top_customers <- data %>% 
+  group_by(Customer_Name) %>% 
+  summarise(Total_Sales = sum(Sales), Total_Orders = n(), .groups = 'drop') %>% 
+  arrange(desc(Total_Sales))
+print(head(top_customers, 10))
+```
+
+```{r}
+# Delivery Time Analysis
+delivery_analysis <- data %>% 
+  group_by(Ship_Mode) %>% 
+  summarise(Average_Delivery_Time = mean(Delivery_Time), .groups = 'drop')
+print(delivery_analysis)
+```
+
+```{r}
+## 4. Data Visualization
+
+# Sales Distribution
+ggplot(data, aes(x = Sales)) + 
+  geom_histogram(fill = "skyblue", color = "black", bins = 30) + 
+  labs(title = "Sales Distribution", x = "Sales", y = "Frequency")
+```
+
+```{r}
+# Sales Trend Over Time
+ggplot(data, aes(x = Order_Date, y = Sales)) +
+  geom_line(stat = "summary", fun = sum, color = "blue") +
+  labs(title = "Sales Trend Over Time", x = "Date", y = "Total Sales") +
+  theme_minimal()
+```
+
+```{r}
+# Sales by Category
+ggplot(data, aes(x = Category, y = Sales, fill = Category)) +
+  geom_bar(stat = "summary", fun = sum) +
+  labs(title = "Total Sales by Category", x = "Category", y = "Sales") +
+  theme_minimal()
+```
+
+```{r}
+# Top 10 Customers Sales
+ggplot(top_customers[1:10,], aes(x = reorder(Customer_Name, -Total_Sales), y = Total_Sales, fill = Customer_Name)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Top 10 Customers by Sales", x = "Customer Name", y = "Total Sales") +
+  theme_minimal()
+```
+
+```{r}
+# Delivery Time Analysis
+ggplot(delivery_analysis, aes(x = Ship_Mode, y = Average_Delivery_Time, fill = Ship_Mode)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Average Delivery Time by Ship Mode", x = "Shipping Mode", y = "Days") +
+  theme_minimal()
+```
+
+## 5. Correlation Analysis
+
+```{r}
+num_cols <- select(data, where(is.numeric))
+corr_matrix <- cor(num_cols, use = "complete.obs")
+print(corr_matrix)
+```
+
+```{r}
+# Plot Correlation Matrix
+corrplot(corr_matrix, method = "color", type = "upper", tl.cex = 0.8, tl.col = "black")
+```
+
+```{r}
+## 6. Simple Linear Regression (Sales vs. Order Date)
+
+
+
+ggplot(data, aes(x = as.numeric(Order_Date), y = Sales)) +
+  geom_point(alpha = 0.5, color = "black") +
+  geom_smooth(method = "lm", color = "red", se = TRUE) +
+  theme_minimal() +
+  labs(title = "Sales vs Order Date Regression", 
+       x = "Order Date (Numeric)", 
+       y = "Sales")
+```
+
+```{r}
+dbDisconnect(conn)
+```
+
+```{r}
+# Step 1: Load necessary libraries
+# Reason: These libraries provide functions for data manipulation, visualization, and handling date formats.
+if (!require(tidyverse)) install.packages("tidyverse", dependencies=TRUE)
+if (!require(lubridate)) install.packages("lubridate", dependencies=TRUE)
+if (!require(ggplot2)) install.packages("ggplot2", dependencies=TRUE)
+
+library(tidyverse)  # For data wrangling and visualization
+library(lubridate)  # For handling date formats
+library(ggplot2)
+```
+
+```{r}
+data <- read.csv("superstore.csv", stringsAsFactors = FALSE, encoding="latin1")
+```
+
+```{r}
+# Step 3: Convert dates to Date format
+# Reason: Ensures that date columns are properly formatted for time-based analysis.
+if (!"Order_Date" %in% names(data) | !"Ship_Date" %in% names(data)) {
+  stop("Error: Required date columns are missing from the dataset.")
+}
+data$Order_Date <- dmy(data$Order_Date)
+data$Ship_Date <- dmy(data$Ship_Date)
+
+```
+
+```{r}
+# Step 4: Descriptive Statistics and Exploratory Data Analysis
+# This step helps in understanding the structure and summary of the dataset.
+summary(data)
+```
+
+```{r}
+# Step 5: Check for Missing Values
+# Detecting missing values helps ensure data quality.
+missing_values <- sum(is.na(data))
+print(paste("Total missing values in dataset:", missing_values))
+```
+
+```{r profitability-analysis, echo=TRUE, message=FALSE, warning=FALSE}
+# Load necessary libraries
+library(tidyverse)
+library(ggplot2)
+library(lubridate)
+```
+
+```{r}
+data <- read.csv("superstore.csv")
+```
+
+### {r}
+
+# **1.sales trends over time? (Time Series Analysis)**
+
+-   ***Helps identify seasonality, growth patterns, and sales fluctuations over time.***
+
+-   ***Businesses can use this to forecast demand and plan inventory accordingly.***
+
+```{r}
+# Convert Order Date to Date format
+data$Order_Date <- as.Date(data$Order_Date, format="%d/%m/%Y")
+```
+
+```{r}
+# Aggregate sales by month
+monthly_sales <- data %>%
+  mutate(YearMonth = format(Order_Date, "%Y-%m")) %>%
+  group_by(YearMonth) %>%
+  summarise(Total_Sales = sum(Sales), .groups = 'drop')
+```
+
+```{r}
+# Plot sales trend
+ggplot(monthly_sales, aes(x = YearMonth, y = Total_Sales, group=1)) +
+  geom_line(color = "blue", size = 1) +
+  geom_point(color = "red") +
+  labs(title = "Sales Trend Over Time", x = "Year-Month", y = "Total Sales") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+#### {r}
+
+### 2. product profitability and category performance
+
+#### *It is identify high-profit products and eliminate low-margin ones. the impact is it will focus on high-profit products for marketing and inventory priority optimizing low -margin profits profitability for under performing products we adjust pricing strategies*
+
+```{r}
+# Convert Order Date to Date format
+data$Order_Date <- dmy(data$Order_Date)  # Ensure date format is recognized
+
+# Aggregate sales by month
+monthly_sales <- data %>%
+  mutate(YearMonth = floor_date(Order_Date, "month")) %>%  # Group by month
+  group_by(YearMonth) %>%
+  summarise(Total_Sales = sum(Sales), .groups = 'drop')
+```
+
+```{r}
+data_sample$Order_Date <- as.Date(data_sample$Order_Date, format="%Y-%m-%d")
+```
+
+```{r}
+colnames(data_sample)
+```
+
+```{r}
+profit_by_category <- data_sample %>% group_by(Category) %>% summarise(Total_Sales = sum(Sales, na.rm = TRUE))
+profit_by_region <- data_sample %>% group_by(Region) %>% summarise(Total_Sales = sum(Sales, na.rm = TRUE))
+```
+
+```{r}
+# Bar plots for sales by category
+ggplot(profit_by_category, aes(x = reorder(Category, -Total_Sales), y = Total_Sales, fill = Category)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Total Sales by Category", x = "Category", y = "Total Sales") +
+  theme_minimal()
+```
+
+### 
+
+### 3. Profitability by Category and Region
+
+#### *Identifies key revenue drivers by category and region.*
+
+#### *Helps optimize resource allocation and marketing focus*
+
+```{r}
+# Group sales by category and region
+profit_by_category <- data_sample %>% group_by(Category) %>% summarise(Total_Sales = sum(Sales))
+profit_by_region <- data_sample %>% group_by(Region) %>% summarise(Total_Sales = sum(Sales))
+
+# Bar plots
+ggplot(profit_by_category, aes(x = reorder(Category, -Total_Sales), y = Total_Sales, fill = Category)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Total Sales by Category", x = "Category", y = "Total Sales") +
+  theme_minimal()
+
+ggplot(profit_by_region, aes(x = reorder(Region, -Total_Sales), y = Total_Sales, fill = Region)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Total Sales by Region", x = "Region", y = "Total Sales") +
+  theme_minimal()
+
+```
+
+### 4. Customer Segmentation
+
+#### *Helps understand different customer groups and their purchasing behavior.*
+
+#### *Enables targeted marketing and personalized offers.*
+
+```{r}
+# Group sales by customer segment
+segment_sales <- data_sample %>% group_by(Segment) %>% summarise(Total_Sales = sum(Sales))
+
+# Bar plot
+ggplot(segment_sales, aes(x = reorder(Segment, -Total_Sales), y = Total_Sales, fill = Segment)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Total Sales by Customer Segment", x = "Segment", y = "Total Sales") +
+  theme_minimal()
+
+```
+
+### 5. Identify Seasonal Sales Dips for Discount Strategies
+
+#### Helps detect low sales months where discounts can boost revenue.
+
+#### Ensures businesses don't overstock in months with low demand
+
+```{r}
+# Aggregate sales by month
+data_sample$YearMonth <- format(data_sample$Order_Date, "%Y-%m")
+monthly_sales <- data_sample %>%
+  group_by(YearMonth) %>%
+  summarise(Total_Sales = sum(Sales, na.rm = TRUE), .groups = 'drop')
+
+# Convert YearMonth to Date format
+monthly_sales$YearMonth <- as.Date(paste0(monthly_sales$YearMonth, "-01"))
+
+# Identify top and bottom sales months
+top_months <- monthly_sales %>% top_n(3, Total_Sales)
+low_months <- monthly_sales %>% top_n(-3, Total_Sales)
+
+# Print results
+print("Top 3 Sales Months:")
+print(top_months)
+print("Bottom 3 Sales Months (Ideal for Discounts):")
+print(low_months)
+
+# Plot sales trend
+ggplot(monthly_sales, aes(x = YearMonth, y = Total_Sales)) +
+  geom_line(color = "blue", size = 1) +
+  geom_point(color = "red") +
+  labs(title = "Sales Trend Over Time", x = "Year-Month", y = "Total Sales") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+## Integration with python
+
+### Demonstrate communication between R and Python using Quarto.
+
+### Implement a small Python script within the Quarto document (e.g., a simple visualization, data transformation, or summary statistics)
+
+```{r}
+library(reticulate)
+library(ggplot2)
+```
+
+```{python}
+# Integration with Python (10 points)
+
+# Step 1: Import Necessary Libraries
+# These libraries are required for data manipulation and visualization.
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Step 2: Load the Dataset
+# The dataset is read from a CSV file, assuming it's in the working directory.
+superstore_data = pd.read_csv("superstore.csv", encoding='latin1')
+```
+
+```{python}
+import pandas as pd
+import numpy as np
+import matplotlib as plt
+import seaborn as sns
+
+```
+
+```{python}
+# Load dataset with encoding
+superstore_data = pd.read_csv("superstore.csv", encoding="latin1")
+
+```
+
+```{python}
+
+# Check column names
+print(superstore_data.columns)  # Debugging step
+
+
+```
+
+```{python}
+# Verify if 'Order Date' exists after cleaning column names
+if 'Order Date' in superstore_data.columns:
+    superstore_data['Order Date'] = pd.to_datetime(superstore_data['Order Date'])  # Convert to datetime
+    superstore_data['Year_Month'] = superstore_data['Order Date'].dt.to_period('M')  # Extract Year-Month
+else:
+    print("Column 'Order Date' not found. Check dataset."
+```
+
+```{python}
+print(superstore_data.columns)
+
+```
+
+```{python}
+superstore_data.columns = superstore_data.columns.str.strip()
+
+```
+
+```{python}
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Ensure column names are clean
+superstore_data.columns = superstore_data.columns.str.strip()
+
+# Check if 'Order_Date' exists
+if 'Order_Date' in superstore_data.columns:
+    # Convert 'Order_Date' to datetime format
+    superstore_data['Order_Date'] = pd.to_datetime(superstore_data['Order_Date'], errors='coerce')
+
+    # Remove rows where 'Order_Date' conversion failed
+    superstore_data = superstore_data.dropna(subset=['Order_Date'])
+
+    # Create 'Year_Month' column for time-based aggregation
+    superstore_data['Year_Month'] = superstore_data['Order_Date'].dt.to_period('M')
+
+    # Aggregate sales by 'Year_Month'
+    monthly_sales = superstore_data.groupby('Year_Month')['Sales'].sum().reset_index()
+
+    # Convert 'Year_Month' to string for plotting
+    monthly_sales['Year_Month'] = monthly_sales['Year_Month'].astype(str)
+
+    # Plot Sales Trend Over Time
+    plt.figure(figsize=(12,6))
+    sns.lineplot(data=monthly_sales, x='Year_Month', y='Sales', marker='o', color='red')
+    plt.xticks(rotation=45)
+    plt.xlabel("Year-Month")
+    plt.ylabel("Total Sales")
+    plt.title("Sales Trend Over Time")
+    plt.grid(True)
+    plt.show()
+else:
+    print("Error: 'Order_Date' column not found! Check dataset.")
+
+```
+
+```{python}
+# Print column names to verify
+print(superstore_data.columns.tolist())
+
+# Check the first few rows
+print(superstore_data.head())
+
+# Ensure 'Sales' is numeric
+superstore_data['Sales'] = pd.to_numeric(superstore_data['Sales'], errors='coerce')
+
+# Ensure 'Product_Name' has valid values
+print(superstore_data['Product_Name'].unique()[:10])  # Show first 10 unique product names
+
+```
+
+```{python}
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Ensure 'Sales' is numeric
+superstore_data['Sales'] = pd.to_numeric(superstore_data['Sales'], errors='coerce')
+
+# Aggregate total sales per product
+top_products = superstore_data.groupby('Product_Name')['Sales'].sum().nlargest(10).reset_index()
+
+# Plot top 10 products by sales
+plt.figure(figsize=(10, 5))
+sns.barplot(data=top_products, x='Sales', y='Product_Name', palette='coolwarm')
+plt.xlabel("Total Sales")
+plt.ylabel("Product Name")
+plt.title("Top 10 Products by Sales")
+plt.show()
+
+```
+
+```{python}
+print(superstore_data.columns)
+
+```
+
+```{python}
+# Aggregate sales by month and region
+sales_heatmap = superstore_data.pivot_table(values='Sales', index='Region', columns='Year_Month', aggfunc='sum')
+
+# Plot heatmap
+plt.figure(figsize=(12,6))
+sns.heatmap(sales_heatmap, cmap="Blues", linewidths=0.5, annot=True, fmt=".0f")
+plt.xlabel("Year-Month")
+plt.ylabel("Region")
+plt.title("Monthly Sales Heatmap by Region")
+plt.show()
+```
+
+```{python}
+import matplotlib.pyplot as plt
+
+# Aggregate sales by category
+category_sales = superstore_data.groupby('Category')['Sales'].sum()
+
+# Plot donut chart
+plt.figure(figsize=(8,8))
+wedges, texts, autotexts = plt.pie(category_sales, labels=category_sales.index, autopct='%1.1f%%',
+                                   counterclock=False, startangle=90, colors=['#ff9999','#66b3ff','#99ff99'],
+                                   wedgeprops={'edgecolor': 'black'})
+plt.setp(autotexts, size=10, weight="bold", color="white")
+plt.gca().add_artist(plt.Circle((0,0),0.70,fc='white'))  # Donut effect
+plt.title("Sales Distribution by Category - Donut Chart")
+plt.show()
+
+```
+
+```{python}
+# Aggregate sales by state
+state_sales = superstore_data.groupby('State')['Sales'].sum().nlargest(5)
+
+# Pie chart
+plt.figure(figsize=(8,8))
+plt.pie(state_sales, labels=state_sales.index, autopct='%1.1f%%', startangle=140, colors=sns.color_palette("pastel"))
+plt.title("Sales Contribution by Top 5 States")
+plt.show()
+
+```
+
+```{python}
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(8,5))
+sns.violinplot(data=superstore_data, x='Category', y='Sales', palette='muted')
+plt.xlabel("Category")
+plt.ylabel("Sales")
+plt.title("Sales Distribution by Category - Violin Plot")
+plt.grid(True)
+plt.show()
+
+```
+
+```{python}
+import pandas as pd
+
+# Aggregate sales by Region and Category
+stacked_data = superstore_data.groupby(['Region', 'Category'])['Sales'].sum().unstack()
+
+# Stacked bar chart
+stacked_data.plot(kind='bar', stacked=True, figsize=(10,6), colormap='viridis')
+plt.xlabel("Region")
+plt.ylabel("Total Sales")
+plt.title("Sales by Region and Category - Stacked Bar Chart")
+plt.legend(title="Category")
+plt.xticks(rotation=45)
+plt.grid(axis='y')
+plt.show()
+
+```
+
+```{python}
+import networkx as nx
+
+from math import pi
+
+# Aggregate sales by category
+category_sales = superstore_data.groupby('Category')['Sales'].sum()
+
+# Define radar chart properties
+categories = category_sales.index
+values = category_sales.values.tolist()
+values += values[:1]  # Repeat first value to close the circular chart
+
+angles = [n / float(len(categories)) * 2 * pi for n in range(len(categories))]
+angles += angles[:1]
+
+plt.figure(figsize=(6,6))
+ax = plt.subplot(111, polar=True)
+plt.xticks(angles[:-1], categories)
+
+ax.plot(angles, values, linewidth=1, linestyle='solid', label="Sales")
+ax.fill(angles, values, 'b', alpha=0.1)
+plt.title("Sales by Category - Radar Chart")
+plt.show()
+
+
+```
+
+```{python}
+import pandas as pd
+
+# Load the dataset
+print(superstore_data.head())  # Show first 5 rows
+print(superstore_data.info())  # Check data types and missing values
+
+```
+
+```{python}
+# Convert columns to correct types
+superstore_data['Sales'] = pd.to_numeric(superstore_data['Sales'], errors='coerce')  # Convert Sales to float
+superstore_data['Order_Date'] = pd.to_datetime(superstore_data['Order_Date'], errors='coerce')  # Convert Date
+superstore_data['Ship_Date'] = pd.to_datetime(superstore_data['Ship_Date'], errors='coerce')  # Convert Date
+superstore_data['Year_Month'] = superstore_data['Order_Date'].dt.to_period('M').astype(str)  # Ensure correct format
+
+# Drop rows with missing Sales values
+superstore_data = superstore_data.dropna(subset=['Sales'])
+
+```
+
+```{python}
+
+print(superstore_data.columns)
+
+
+```
+
+```{python}
+import numpy as np
+
+categories = superstore_data.groupby("Category")["Sales"].sum().reset_index()
+angles = np.linspace(0, 2 * np.pi, len(categories), endpoint=False).tolist()
+
+fig, ax = plt.subplots(figsize=(8,8), subplot_kw={'projection': 'polar'})
+ax.bar(angles, categories["Sales"], align='center', alpha=0.7, color='purple', width=0.5)
+ax.set_xticks(angles)
+ax.set_xticklabels(categories["Category"])
+plt.title("Radial Bar Chart - Sales by Category")
+plt.show()
+
+```
+
+```{python}
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Aggregate sales by Year-Month
+monthly_sales = superstore_data.groupby('Year_Month')['Sales'].sum().reset_index()
+
+# Convert 'Year_Month' to datetime for proper plotting
+monthly_sales['Year_Month'] = pd.to_datetime(monthly_sales['Year_Month'])
+
+# Sort data by date
+monthly_sales = monthly_sales.sort_values('Year_Month')
+
+# Plot area chart
+plt.figure(figsize=(12,6))
+plt.fill_between(monthly_sales['Year_Month'], monthly_sales['Sales'], color="skyblue", alpha=0.5)
+plt.plot(monthly_sales['Year_Month'], monthly_sales['Sales'], color="blue", linewidth=2)
+plt.xticks(rotation=45)
+plt.xlabel("Year-Month")
+plt.ylabel("Total Sales")
+plt.title("Sales Trend Over Time (Area Chart)")
+plt.grid(True)
+plt.show()
+
+
+
+```
+
+```{python}
+import matplotlib.pyplot as plt
+
+# Aggregate sales by category
+category_sales = superstore_data.groupby('Category')['Sales'].sum().reset_index()
+
+# Sort categories by sales in descending order
+category_sales = category_sales.sort_values('Sales', ascending=False)
+
+# Define bar width for each level
+bar_widths = category_sales['Sales'] / category_sales['Sales'].max() * 10  # Normalize to fit
+
+# Define y positions
+y_positions = range(len(category_sales), 0, -1)
+
+# Plot funnel chart
+plt.figure(figsize=(8,6))
+for i, (category, sales) in enumerate(zip(category_sales['Category'], category_sales['Sales'])):
+    plt.barh(y_positions[i], bar_widths[i], color='skyblue', edgecolor='black')
+
+# Add labels
+plt.yticks(y_positions, category_sales['Category'])
+plt.xlabel("Relative Sales")
+plt.title("Funnel Chart - Sales by Category")
+plt.gca().invert_yaxis()  # Invert y-axis to resemble a funnel
+plt.show()
+
+```
+
+```{python}
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Sample subset for better visualization (first 20 cities)
+network_data = superstore_data.groupby('City')['Sales'].sum().reset_index().sort_values('Sales', ascending=False).head(20)
+
+# Generate random x, y positions for cities
+np.random.seed(42)
+x_positions = np.random.rand(len(network_data))
+y_positions = np.random.rand(len(network_data))
+
+# Create figure
+plt.figure(figsize=(10,6))
+
+# Plot nodes (cities)
+plt.scatter(x_positions, y_positions, s=network_data['Sales'] / 100, c='blue', alpha=0.6, edgecolors='black')
+
+# Add city labels
+for i, city in enumerate(network_data['City']):
+    plt.text(x_positions[i], y_positions[i], city, fontsize=8, ha='right')
+
+# Connect cities with random lines (simulating connections)
+for i in range(len(network_data) - 1):
+    plt.plot([x_positions[i], x_positions[i+1]], [y_positions[i], y_positions[i+1]], 'k-', alpha=0.3)
+
+# Title
+plt.title("Network Representation of Sales by City")
+plt.axis("off")  # Hide axes
+plt.show()
+
+```
+
+```{python}
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Aggregate sales by state
+state_sales = superstore_data.groupby('State')['Sales'].sum().reset_index()
+
+# Select top 10 states with highest sales
+top_states = state_sales.nlargest(10, 'Sales')
+
+# Create figure
+plt.figure(figsize=(12, 6))
+
+# Bubble chart with log scale to avoid clutter
+sns.scatterplot(data=top_states, x='State', y='Sales', 
+                size='Sales', sizes=(100, 2000), alpha=0.6, color='blue', edgecolor='black')
+
+# Rotate x-axis labels for better visibility
+plt.xticks(rotation=45)
+
+# Title and labels
+plt.xlabel("State")
+plt.ylabel("Total Sales")
+plt.title("Top 10 States by Sales - Bubble Chart")
+
+plt.show()
+
+```
+
+## Using Functions & Error Handling (15 points)
+
+### Implement custom functions to modularize the code.
+
+```{r}
+sales <- read.csv("superstore.csv", stringsAsFactors = FALSE)
+
+```
+
+```{r}
+preprocess_data <- function(df) {
+  df$Order_Date <- as.Date(df$Order_Date, format="%d/%m/%Y")
+  df$Ship_Date <- as.Date(df$Ship_Date, format="%d/%m/%Y")
+  df <- df[!is.na(df$Postal_Code), ]
+  return(df)
+}
+
+df <- preprocess_data(df)  # Clean the data
+
+```
+
+```{r}
+sales_summary <- function(df) {
+  summary <- aggregate(Sales ~ Category, data = df, sum)
+  return(summary)
+}
+
+print(sales_summary(df))  # Display sales summary
+
+```
+
+### Demonstrate proper error handling and debugging techniques.
+
+```{r}
+df <- load_data("superstore.csv")  # Load dataset with error handling
+
+```
+
+```{r}
+preprocess_data <- function(df) {
+  if (is.null(df)) {
+    stop("Data frame is NULL. Cannot preprocess.")
+  }
+  tryCatch({
+    df$Order_Date <- as.Date(df$Order_Date, format="%d/%m/%Y")
+    df$Ship_Date <- as.Date(df$Ship_Date, format="%d/%m/%Y")
+    df <- df[!is.na(df$Postal_Code), ]
+    return(df)
+  }, warning = function(w) {
+    message("Warning in preprocessing: ", w)
+    return(df)
+  }, error = function(e) {
+    message("Error in preprocessing: ", e)
+    return(NULL)
+  })
+}
+
+df <- preprocess_data(df)  # Preprocess dataset with error handling
+
+```
+
+```{r}
+sales_summary <- function(df) {
+  if (is.null(df)) {
+    stop("Data frame is NULL. Cannot generate summary.")
+  }
+  tryCatch({
+    summary <- aggregate(Sales ~ Category, data = df, sum)
+    return(summary)
+  }, error = function(e) {
+    message("Error in generating sales summary: ", e)
+    return(NULL)
+  })
+}
+
+print(sales_summary(df))  # Print sales summary with error handling
+
+```
+
+```{r}
+df <- load_data("superstore.csv") 
+```
+
+```{r}
+preprocess_data <- function(df) {
+  # Converts date columns to Date format and removes rows with missing Postal_Code
+  df$Order_Date <- as.Date(df$Order_Date, format="%d/%m/%Y")
+  df$Ship_Date <- as.Date(df$Ship_Date, format="%d/%m/%Y")
+  df <- df[!is.na(df$Postal_Code), ]
+  return(df)
+}
+
+df <- preprocess_data(data)
+```
+
+```{r}
+# Function to generate sales summary
+sales_summary <- function(df) {
+  # Aggregates total sales by product category
+  summary <- aggregate(Sales ~ Category, data = df, sum)
+  return(summary)
+}
+
+print(sales_summary(df))  # Print sales summary
+
+```
+
+```{r}
+# Function to generate sales summary
+sales_summary <- function(df) {
+  # Aggregates total sales by product category
+  summary <- aggregate(Sales ~ Category, data = df, sum)
+  return(summary)
+}
+
+print(sales_summary(df))  # Print sales summary
+
+```
+
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+```
+
+```{r}
+ df <- read.csv("superstore.csv", stringsAsFactors = FALSE)
+```
+
+```{r}
+head(df)
+```
+
+```{r}
+clean_data <- function(df) {
+  if (is.null(df)) {
+    message("Error: Data is NULL. Check if the file was loaded properly.")
+    return(NULL)
+  }
+
+  # Print column names for debugging
+  message("Column names in dataset: ", paste(names(df), collapse=", "))
+
+  # Standardizing column names (replace spaces with underscores)
+  names(df) <- gsub(" ", "_", names(df))
+
+  # Define required columns
+  required_cols <- c("Order_Date", "Ship_Date", "Sales", "Profit", "Category")
+  missing_cols <- setdiff(required_cols, names(df))
+
+  # Check for missing columns
+  if (length(missing_cols) > 0) {
+    stop("Missing required columns: ", paste(missing_cols, collapse=", "))
+  }
+
+  # Handle date conversion with error handling
+  df$Order_Date <- tryCatch({
+    parse_date_time(df$Order_Date, orders = c("mdy", "dmy", "ymd"))
+  }, error = function(e) {
+    message("Error converting Order_Date: ", e)
+    return(NA)
+  })
+
+  df$Ship_Date <- tryCatch({
+    parse_date_time(df$Ship_Date, orders = c("mdy", "dmy", "ymd"))
+  }, error = function(e) {
+    message("Error converting Ship_Date: ", e)
+    return(NA)
+  })
+
+  # Check if date conversion worked
+  if (all(is.na(df$Order_Date)) || all(is.na(df$Ship_Date))) {
+    stop("Date conversion failed. Check date formats in dataset.")
+  }
+
+  # Convert Sales and Profit to numeric safely
+  df$Sales <- suppressWarnings(as.numeric(gsub(",", "", df$Sales)))
+  df$Profit <- suppressWarnings(as.numeric(gsub(",", "", df$Profit)))
+
+  # Remove rows where Sales or Profit are still NA
+  df <- df %>% drop_na(Sales, Profit)
+
+  message("Data cleaned successfully.")
+  return(df)
+}
+
+
+```
+
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+
+# Function to load data with error handling
+load_data <- function(file_path) {
+  tryCatch({
+    df <- read.csv(file_path, stringsAsFactors = FALSE)
+    message("Data loaded successfully.")
+    return(df)
+  }, error = function(e) {
+    message("Error loading file: ", e)
+    return(NULL)
+  })
+}
+
+```
+
+### Ensure functions are well-documented and reusable.
+
+```{r}
+
+
+# Debugging: Check if data is loaded
+if (is.null(df)) {
+  stop("Data loading failed. Check file path or format.")
+} else {
+  print(head(df))  # Print first few rows for debugging
+  print(names(df)) # Print column names
+}
+
+
+# Debugging: Check cleaned data
+if (!is.null(df)) {
+  print("Data cleaned successfully.")
+  print(head(df))  # Check the cleaned data
+} else {
+  stop("Data cleaning failed.")
+}
+
+```
+
+```{r}
+
+# Function to clean data
+clean_data <- function(df) {
+  if (is.null(df)) {
+    message("Error: Data is NULL. Check if the file was loaded properly.")
+    return(NULL)
+  }
+
+  # Debugging: Print column names
+  message("Column names in dataset: ", paste(names(df), collapse=", "))
+
+  # Standardize column names (replace spaces with underscores)
+  names(df) <- gsub(" ", "_", names(df))
+
+  # Define required columns
+  required_cols <- c("Order_Date", "Ship_Date", "Sales", "Profit", "Category")
+  missing_cols <- setdiff(required_cols, names(df))
+
+  # Check for missing columns
+  if (length(missing_cols) > 0) {
+    stop("Missing required columns: ", paste(missing_cols, collapse=", "))
+  }
+
+  # Convert Order_Date and Ship_Date to Date format
+  df$Order_Date <- tryCatch({
+    parse_date_time(df$Order_Date, orders = c("mdy", "dmy", "ymd"))
+  }, error = function(e) {
+    message("Error converting Order_Date: ", e)
+    return(NA)
+  })
+
+  df$Ship_Date <- tryCatch({
+    parse_date_time(df$Ship_Date, orders = c("mdy", "dmy", "ymd"))
+  }, error = function(e) {
+    message("Error converting Ship_Date: ", e)
+    return(NA)
+  })
+
+  # Convert Sales and Profit to numeric safely
+  df$Sales <- suppressWarnings(as.numeric(gsub(",", "", df$Sales)))
+  df$Profit <- suppressWarnings(as.numeric(gsub(",", "", df$Profit)))
+
+  # Remove rows with missing Sales or Profit
+  df <- df %>% drop_na(Sales, Profit)
+
+  message("Data cleaned successfully.")
+  return(df)
+}
+
+```
+
+```{r}
+colnames(df)
+
+```
+
+```{r}
+library(dplyr)
+
+head(df)
+
+```
+
+```{r}
+unique(df$Sales)
+unique(df$Profit)
+unique(df$Discount)
+unique(df$Quantity)
+
+```
+
+### Visualization & Interpretation
+
+#### Use appropriate visualizations to support findings.
+
+#### Ensure clarity and effectiveness of charts and graphs.
+
+#### Include at least three properly designed charts to illustrate key insights
+
+```{r}
+df <- read.csv("superstore.csv")
+```
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(treemapify)
+library(waffle)
+library(ggplot2)
+library(dplyr)
+library(maps)
+library(viridis)
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+library(reshape2)
+library(treemap)
+library(ggthemes)
+library(ggExtra)
+
+```
+
+```{r}
+# Load the dataset
+file_path <- "superstore.csv"
+df <- read.csv(file_path, stringsAsFactors = FALSE, encoding = "latin1")
+
+# Convert date columns
+df$Order_Date <- dmy(df$Order_Date)
+
+df$Year <- year(df$Order_Date)
+df$Day_of_Week <- weekdays(df$Order_Date)
+```
+
+```{r}
+df <- read.csv("superstore.csv")
+```
+
+```{r}
+colnames(df)
+```
+
+```{r}
+# Convert State names to lowercase to match map data
+df$State <- tolower(df$State)
+
+# Aggregate sales by state
+sales_by_state <- df %>%
+  group_by(State) %>%
+  summarise(TotalSales = sum(Sales, na.rm = TRUE))
+
+# Get U.S. state map data
+us_states <- map_data("state")
+
+# Merge sales data with map data
+map_data_sales <- us_states %>%
+  left_join(sales_by_state, by = c("region" = "State"))
+
+# Replace NA sales with 0 for states without data
+map_data_sales$TotalSales[is.na(map_data_sales$TotalSales)] <- 0
+
+```
+
+```{r}
+# Plot state map with sales data
+ggplot(map_data_sales, aes(x = long, y = lat, group = group, fill = TotalSales)) +
+  geom_polygon(color = "white") +
+  scale_fill_viridis(option = "magma", direction = -1, name = "Total Sales ($)") +
+  labs(title = "Total Sales by U.S. State") +
+  theme_void()
+
+```
+
+```{r}
+# Aggregate sales by category
+sales_by_category <- df %>%
+  group_by(Category) %>%
+  summarise(TotalSales = sum(Sales, na.rm = TRUE))
+
+# Plot
+ggplot(sales_by_category, aes(x = reorder(Category, -TotalSales), y = TotalSales, fill = Category)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Total Sales by Category", x = "Category", y = "Total Sales ($)") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Blues") +
+  theme(legend.position = "none")
+
+```
+
+```{r}
+sales_by_state <- df %>%
+  group_by(State) %>%
+  summarise(TotalSales = sum(Sales, na.rm = TRUE)) %>%
+  arrange(desc(TotalSales))  # Sort by sales
+
+# Convert State to factor to control order in polar plot
+sales_by_state$State <- factor(sales_by_state$State, levels = sales_by_state$State)
+```
+
+```{r}
+# Create Polar Plot
+ggplot(sales_by_state, aes(x = State, y = TotalSales, fill = TotalSales)) +
+  geom_bar(stat = "identity") +
+  coord_polar(start = 0) +
+  scale_fill_viridis_c(option = "plasma") +
+  labs(title = "State-Wise Sales Distribution (Polar Plot)", x = "", y = "Total Sales ($)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 8))  # Adjust text for readability
+
+```
+
+```{r}
+colnames(data)
+
+```
+
+```{r}
+df <- read.csv("superstore.csv", stringsAsFactors = FALSE, encoding = "latin1")
+
+# Convert date columns
+df$Order_Date <- dmy(df$Order_Date)
+
+df$Year <- year(df$Order_Date)
+df$Day_of_Week <- weekdays(df$Order_Date)
+```
+
+```{r}
+category_sales <- df %>% group_by(Category) %>% summarise(Sales = sum(Sales))
+ggplot(category_sales, aes(x = "", y = Sales, fill = Category)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y") +
+  theme_void() +
+  labs(title = "Sales by Category")
+
+```
+
+```{r}
+region_sales <- df %>% group_by(Region, State) %>% summarise(Sales = sum(Sales))
+treemap(region_sales, index = c("Region", "State"), vSize = "Sales", vColor = "Sales", type = "value", title = "Sales by Region")
+
+```
+
+```{r}
+ship_sales <- df %>% group_by(Ship_Mode) %>% summarise(Sales = sum(Sales))
+ship_sales$fraction <- ship_sales$Sales / sum(ship_sales$Sales)
+ship_sales$ymax <- cumsum(ship_sales$fraction)
+ship_sales$ymin <- c(0, head(ship_sales$ymax, n=-1))
+ggplot(ship_sales, aes(ymax = ymax, ymin = ymin, xmax = 4, xmin = 3, fill = Ship_Mode)) +
+  geom_rect() +
+  coord_polar(theta = "y") +
+  xlim(c(2, 4)) +
+  theme_void() +
+  labs(title = "Sales by Ship Mode")
+
+```
+
+```{r}
+ggplot(df, aes(x = Category, y = Sales, fill = Category)) +
+  geom_violin() +
+  theme_minimal() +
+  labs(title = "Sales Distribution by Category", x = "Category", y = "Sales ($)")
+
+```
+
+```{r}
+day_sales <- df %>% group_by(Day_of_Week) %>% summarise(Sales = sum(Sales))
+ggplot(day_sales, aes(x = reorder(Day_of_Week, Sales), y = Sales, fill = Day_of_Week)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(title = "Sales by Day of the Week", x = "Day", y = "Sales ($)")
+
+```
+
+```{r}
+# Facet Grid by Segment
+ggplot(df, aes(x = Sales)) +
+  geom_histogram(bins = 30, fill = "lightblue", color = "black") +
+  theme_minimal() +
+  facet_wrap(~ Segment) +
+  labs(title = "Sales Distribution by Customer Segment", x = "Sales ($)", y = "Count")
+
+```
+
+```{r}
+colnames(data)
+
+
+```
+
+```{r}
+# Ensure Sales is numeric
+data$Sales <- as.numeric(data$Sales)
+
+# Aggregate Sales by Sub-Category
+data %>%
+  group_by(Sub_Category) %>%
+  summarise(Sales = sum(Sales)) %>%
+  arrange(desc(Sales)) %>%
+  ggplot(aes(x = reorder(Sub_Category, Sales), y = Sales)) +
+  geom_segment(aes(xend = Sub_Category, y = 0, yend = Sales), color = "gray") +
+  geom_point(size = 4, color = "blue") +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Sales by Sub-Category", x = "Sub-Category", y = "Sales ($)")
+
+```
+
+```{r}
+ggplot(data, aes(x = Sales)) +
+  geom_histogram(bins = 50, fill = "blue", color = "black", alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Sales Distribution", x = "Sales ($)", y = "Frequency")
+
+```
+
+# **Analysis & Results**
+
+## 1. Sales Trends
+
+#### 1.*Sales exhibit seasonal variations, with peak sales occurring during holiday seasons and promotional periods.*
+
+#### 2.*Analyzing these fluctuations allows businesses to forecast demand and align inventory management accordingly.*
+
+#### 3.*Additionally, monthly sales trends indicate that certain months consistently outperform others, making them ideal for targeted marketing campaigns.*
+
+## 2. Customer Segmentation
+
+#### *The analysis of customer segments reveals that:*
+
+#### 1.***Corporate and Consumer segments drive the highest revenue.***
+
+#### 2.***Home Office customers contribute less overall sales.***
+
+#### 3.*Understanding the preferences of high-value customer segments allows businesses to design personalized marketing strategies, loyalty programs, and promotional campaigns.*
+
+## 3. Regional Performance
+
+#### *Sales vary significantly by region, with the Western region demonstrating the highest revenue. Key findings include:*
+
+#### 1.***Western Region:** The top-performing area, likely due to larger markets and high customer demand.*
+
+#### 2.***Eastern & Central Regions:** Moderate sales performance, with opportunities for expansion.*
+
+#### ***Southern Region:The lowest-performing region, requiring targeted marketing efforts to boost sales.***
+
+# Conclusion
+
+#### *The findings from this analysis provide valuable insights into sales trends and customer behavior. Key takeaways include:*
+
+#### 1.***Sales fluctuate seasonally**, emphasizing the need for proactive inventory and promotional planning.*
+
+#### 2.***Corporate and Consumer segments are the top revenue drivers**, suggesting a focus on targeted marketing.*
+
+#### 3.***The Western region leads in sales**, presenting opportunities for further investment and market penetration.*
+
+#### 4.***Opportunities exist to improve sales in under performing regions and segments.***
+
+# Recommendations
+
+#### *1. **Optimize Seasonal Promotions:** Increase marketing efforts and stock levels during peak months to maximize sales.*
+
+#### *2. **Target High-Value Segments:** Focus on Corporate and Consumer customers with loyalty programs and personalized offers.*
+
+#### *3. **Expand in Under performing Regions:** Develop localized marketing strategies for the Southern region to increase sales.*
+
+#### *4. **Improve Shipping Efficiency:** Analyze delivery times to enhance customer satisfaction and reduce delays.*
+
+#### *5. **Diversify Product Offerings:** Assess demand for products in lower-performing categories to optimize inventory.*
+
+# Limitations
+
+#### 1.***Data Gaps: Some missing values, especially in the `Postal_Code` column, may affect regional analysis.***
+
+#### 2.***External Factors: The analysis does not consider external influences such as economic conditions, competitor pricing, or market trends.***
+
+#### 3.***Limited Scope: The study focuses on historical sales data and does not incorporate predictive modeling or machine learning for future forecasting.***
+
+# **Future Steps**
+
+#### 1.***Enhance Data Collection: Improve data completeness by ensuring missing values are minimized.***
+
+#### 2.***Incorporate Market Trends: Integrate external factors such as inflation rates, customer reviews, and competitor analysis to provide a more comprehensive business strategy.***
+
+#### 3.***Advanced Predictive Modeling: Implement machine learning techniques to predict future sales trends and optimize inventory planning.***
+
+#### 4.***Customer Lifetime Value (CLV) Analysis: Identify high-value customers and develop retention strategies to maximize long-term revenue.***
+
+#### 5. ***Automated Reporting: Develop automated dashboards using tools like R Shiny or Tableau for real-time sales monitoring and decision-making.***
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+1 + 1
+```
+
+You can add options to executable code like this
+
+```{r setup, include=FALSE}
+# Load necessary libraries
+library(tidyverse)
+library(RSQLite)
+library(ggplot2)
+library(lubridate)
+library(DBI)
+library(corrplot)
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
